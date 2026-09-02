@@ -57,10 +57,50 @@
             color: #667eea;
         }
 
+        .notification {
+            background: #e8f5e9;
+            border: 2px solid #4caf50;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            color: #2e7d32;
+            display: none;
+            font-weight: 500;
+        }
+
+        .notification.show {
+            display: block;
+            animation: slideIn 0.3s ease;
+        }
+
+        .notification.success {
+            background: #e8f5e9;
+            border-color: #4caf50;
+            color: #2e7d32;
+        }
+
+        .notification.error {
+            background: #ffebee;
+            border-color: #f44336;
+            color: #c62828;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
         .button-group {
             display: flex;
             gap: 10px;
             flex-wrap: wrap;
+            margin-bottom: 20px;
         }
 
         button {
@@ -75,19 +115,25 @@
             transition: all 0.3s ease;
         }
 
-        #launchAppBtn {
+        #launchGwpayBtn {
             background: #667eea;
             color: white;
         }
 
-        #launchAppBtn:hover {
+        #launchGwpayBtn:hover {
             background: #5568d3;
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
         }
 
-        #launchAppBtn:active {
+        #launchGwpayBtn:active {
             transform: translateY(0);
+        }
+
+        #launchGwpayBtn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
         }
 
         #resetBtn {
@@ -98,6 +144,25 @@
 
         #resetBtn:hover {
             background: #e0e0e0;
+        }
+
+        .status-box {
+            background: #f9f9f9;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .status-item {
+            margin: 5px 0;
+        }
+
+        .status-label {
+            font-weight: 600;
+            color: #333;
         }
 
         .info {
@@ -111,20 +176,34 @@
 </head>
 <body>
     <div class="container">
-        <h1>計時器</h1>
+        <h1>計時器應用</h1>
         
+        <div id="notification" class="notification"></div>
+
         <div class="counter-box">
             <div class="counter-label">經過的秒數</div>
             <div id="counter">0</div>
         </div>
 
         <div class="button-group">
-            <button id="launchAppBtn">啟動 GWPay App</button>
+            <button id="launchGwpayBtn">打開 gwpay</button>
             <button id="resetBtn">重置</button>
+        </div>
+
+        <div class="status-box">
+            <div class="status-item">
+                <span class="status-label">App 狀態：</span>
+                <span id="appStatus">未打開</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">上次回調時間：</span>
+                <span id="lastCallback">無</span>
+            </div>
         </div>
 
         <div class="info">
             <p>計時器每秒自動增加 1</p>
+            <p>打開 gwpay 後會回到此頁面並顯示通知</p>
         </div>
     </div>
 
@@ -139,15 +218,58 @@
             }, 1000);
         }
 
-        // 啟動 GWPay App
-        document.getElementById('launchAppBtn').addEventListener('click', () => {
-            // 直接打開 allpay:// URL scheme
-            window.location.href = 'gwpay://textWeb';
+        // 顯示通知
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification show ${type}`;
             
-            // 備用方案：如果直接跳轉失敗，延遲再試一次
             setTimeout(() => {
-                window.location.href = 'gwpay://textWeb';
-            }, 1000);
+                notification.classList.remove('show');
+            }, 3000);
+        }
+
+        // 更新狀態
+        function updateStatus(appStatus, timestamp) {
+            document.getElementById('appStatus').textContent = appStatus;
+            if (timestamp) {
+                document.getElementById('lastCallback').textContent = new Date(timestamp * 1000).toLocaleTimeString('zh-TW');
+            }
+        }
+
+        // 檢查URL參數（回調）
+        function checkUrlCallback() {
+            const params = new URLSearchParams(window.location.search);
+            const status = params.get('status');
+            const timestamp = params.get('timestamp');
+
+            if (status === 'done' || status === 'success') {
+                updateStatus('已完成 ✓', timestamp);
+                showNotification('gwpay 已完成操作！', 'success');
+                
+                // 清除URL參數（保持頁面乾淨）
+                window.history.replaceState({}, document.title, window.location.pathname);
+            } else if (status === 'cancel') {
+                updateStatus('已取消', timestamp);
+                showNotification('操作已取消', 'error');
+                window.history.replaceState({}, document.title, window.location.pathname);
+            } else if (status === 'error') {
+                updateStatus('發生錯誤', timestamp);
+                showNotification('gwpay 發生錯誤，請重試', 'error');
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+        }
+
+        // 打開 gwpay app
+        document.getElementById('launchGwpayBtn').addEventListener('click', () => {
+            updateStatus('已打開...', null);
+            
+            // 生成當前頁面的回調URL
+            const callbackUrl = window.location.origin + window.location.pathname + '?status=done&timestamp=' + Math.floor(Date.now() / 1000);
+            
+            // 打開 gwpay app，並帶上回調URL（可根據app實現調整）
+            const gwpayUrl = 'gwpay://pay?callback=' + encodeURIComponent(callbackUrl);
+            window.location.href = gwpayUrl;
         });
 
         // 重置計數器
@@ -156,8 +278,23 @@
             document.getElementById('counter').textContent = counter;
         });
 
-        // 頁面加載時啟動計時器
-        window.addEventListener('DOMContentLoaded', initCounter);
+        // 監聽頁面可見性（回到前景時）
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                checkUrlCallback();
+            }
+        });
+
+        // 監聽頁面焦點（某些情況下觸發）
+        window.addEventListener('focus', () => {
+            checkUrlCallback();
+        });
+
+        // 頁面加載時檢查URL和啟動計時器
+        window.addEventListener('DOMContentLoaded', () => {
+            checkUrlCallback();
+            initCounter();
+        });
     </script>
 </body>
 </html>
