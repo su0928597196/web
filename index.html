@@ -119,7 +119,7 @@
         </div>
 
         <div class="button-group">
-            <button id="launchAppBtn">啟動 AllPay App</button>
+            <button id="launchAppBtn">啟動 GWPay App</button>
             <button id="resetBtn">重置</button>
         </div>
 
@@ -139,14 +139,14 @@
             }, 1000);
         }
 
-        // 啟動 AllPay App
+        // 啟動 GWPay App
         document.getElementById('launchAppBtn').addEventListener('click', () => {
             // 直接打開 allpay:// URL scheme
-            window.location.href = 'allpay://';
+            window.location.href = 'gwpay://textWeb';
             
             // 備用方案：如果直接跳轉失敗，延遲再試一次
             setTimeout(() => {
-                window.location.href = 'allpay://';
+                window.location.href = 'gwpay://textWeb';
             }, 1000);
         });
 
