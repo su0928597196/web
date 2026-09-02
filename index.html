@@ -203,7 +203,7 @@
 
         <div class="info">
             <p>計時器每秒自動增加 1</p>
-            <p>打開 gwpay 後會回到此頁面並顯示通知</p>
+            <p>打開 gwpay 後會自動顯示通知</p>
         </div>
     </div>
 
@@ -233,30 +233,28 @@
         function updateStatus(appStatus, timestamp) {
             document.getElementById('appStatus').textContent = appStatus;
             if (timestamp) {
-                document.getElementById('lastCallback').textContent = new Date(timestamp * 1000).toLocaleTimeString('zh-TW');
+                document.getElementById('lastCallback').textContent = new Date(timestamp).toLocaleTimeString('zh-TW');
             }
         }
 
-        // 檢查URL參數（回調）
-        function checkUrlCallback() {
-            const params = new URLSearchParams(window.location.search);
-            const status = params.get('status');
-            const timestamp = params.get('timestamp');
-
-            if (status === 'done' || status === 'success') {
-                updateStatus('已完成 ✓', timestamp);
+        // 檢查localStorage中的app狀態
+        function checkGwpayStatus() {
+            const status = localStorage.getItem('gwpayStatus');
+            
+            if (status === 'done') {
+                updateStatus('已完成 ✓', Date.now());
                 showNotification('gwpay 已完成操作！', 'success');
                 
-                // 清除URL參數（保持頁面乾淨）
-                window.history.replaceState({}, document.title, window.location.pathname);
+                // 清除狀態
+                localStorage.removeItem('gwpayStatus');
             } else if (status === 'cancel') {
-                updateStatus('已取消', timestamp);
+                updateStatus('已取消', Date.now());
                 showNotification('操作已取消', 'error');
-                window.history.replaceState({}, document.title, window.location.pathname);
+                localStorage.removeItem('gwpayStatus');
             } else if (status === 'error') {
-                updateStatus('發生錯誤', timestamp);
+                updateStatus('發生錯誤', Date.now());
                 showNotification('gwpay 發生錯誤，請重試', 'error');
-                window.history.replaceState({}, document.title, window.location.pathname);
+                localStorage.removeItem('gwpayStatus');
             }
         }
 
@@ -264,12 +262,8 @@
         document.getElementById('launchGwpayBtn').addEventListener('click', () => {
             updateStatus('已打開...', null);
             
-            // 生成當前頁面的回調URL
-            const callbackUrl = window.location.origin + window.location.pathname + '?status=done&timestamp=' + Math.floor(Date.now() / 1000);
-            
-            // 打開 gwpay app，並帶上回調URL（可根據app實現調整）
-            const gwpayUrl = 'gwpay://pay?callback=' + encodeURIComponent(callbackUrl);
-            window.location.href = gwpayUrl;
+            // 打開 gwpay app
+            window.location.href = 'gwpay://pay';
         });
 
         // 重置計數器
@@ -278,23 +272,26 @@
             document.getElementById('counter').textContent = counter;
         });
 
-        // 監聽頁面可見性（回到前景時）
+        // 監聽頁面從背景回到前景（Safari變焦點時）
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible') {
-                checkUrlCallback();
+                // 頁面回到前景，檢查localStorage
+                setTimeout(() => {
+                    checkGwpayStatus();
+                }, 100);
             }
         });
 
-        // 監聽頁面焦點（某些情況下觸發）
+        // 監聽頁面焦點
         window.addEventListener('focus', () => {
-            checkUrlCallback();
+            checkGwpayStatus();
         });
 
-        // 頁面加載時檢查URL和啟動計時器
+        // 頁面加載時啟動計時器
         window.addEventListener('DOMContentLoaded', () => {
-            checkUrlCallback();
             initCounter();
         });
     </script>
 </body>
 </html>
+
